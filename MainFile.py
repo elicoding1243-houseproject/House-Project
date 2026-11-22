@@ -1,8 +1,7 @@
-
 # =============================================================================
 # Hola Smart HS1000 House Code - Combined File
 # Target board : BBC micro:bit V2 (MicroPython)
-# Version      : 1.0.0
+# Version      : 1.1.1
 #
 # VERSION RULES
 #   First number  : only changes when the project owner says so
@@ -10,7 +9,9 @@
 #   Third number  : small change or bug fix
 #
 # VERSION LOG (short form - full log lives in the Google Doc changelog)
-#   1.0.0 - First source added: "Initialize the servo" (servo on pin 1 -> 180)
+#   1.0.0 - Added a name to the file
+#   1.1.0 - Added first source: "Initialize the servo" (servo on pin 1 -> 180)
+#   1.1.1 - Removed the empty forever loop that was left in by accident
 #
 # HOW TO USE
 #   1. Open python.microbit.org and make sure the board is set to micro:bit V2.
@@ -84,38 +85,9 @@ def section_servo_init():
 
 
 # =============================================================================
-# SECTION 2 - FOREVER LOOP
-# Source file : microbit-Initialize_the_servo.hex
-# Original MakeCode Python:
-#     def on_forever():
-#         pass
-#     basic.forever(on_forever)
-#
-# What it does: MakeCode's "forever" block repeats its contents for as long as
-# the board is on. In the original it was empty (pass = do nothing), so it is
-# a placeholder where future code from other files can go.
-# =============================================================================
-
-# ON/OFF SWITCH for this section. Set to False to skip it.
-ENABLE_FOREVER_LOOP = True
-
-
-def on_forever():
-    """Code placed here repeats again and again. Currently empty."""
-    pass
-
-
-# =============================================================================
 # MAIN PROGRAM
 # Runs each section in order. Each section checks its own switch above.
 # =============================================================================
 
 # Run once at start-up.
 section_servo_init()
-
-# Run repeatedly. MicroPython has no basic.forever(), so a `while True` loop
-# does the same job.
-if ENABLE_FOREVER_LOOP:
-    while True:
-        on_forever()
-        sleep(10)  # Short pause (10 ms) so the loop doesn't hog the processor
