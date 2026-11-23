@@ -2,7 +2,7 @@
 # Hola Smart HS1000 House Code - Combined File
 # Target board : BBC micro:bit V2
 # Language     : MakeCode Python (the Python view inside makecode.microbit.org)
-# Version      : 1.3.0
+# Version      : 1.4.0
 #
 # VERSION RULES
 #   First number  : only changes when the project owner says so
@@ -20,6 +20,10 @@
 #   1.3.0 - Combined in the second source: "10Bluetooth Smart Home"
 #           (Sections 2-7). Converted from MakeCode blocks/TypeScript to
 #           MakeCode Python. The .mkcd now loads the extensions it needs.
+#   1.3.1 - Bluetooth fix: the listening loop now stops when the phone
+#           disconnects (it used to keep running).
+#   1.4.0 - Combined in the third source: "9Bluetooth APP Control LED"
+#           (Section 8, a simple Bluetooth light controller).
 #
 # HOW TO USE
 #   1. Go to makecode.microbit.org and drag the .mkcd file onto the editor.
@@ -95,7 +99,7 @@ strip2: neopixel.Strip = None
 # Door password, and what has been typed so far with buttons A and B.
 PASSWORD = "1001"
 passwd_enter = ""
-# 1 while a phone is connected.
+# 1 while a phone is connected (set back to 0 when it disconnects).
 connect = 0
 # The last Bluetooth message received.
 ble_val = ""
@@ -260,7 +264,9 @@ def jingle_bells():
 # SECTION 5 - BLUETOOTH CONTROL
 # NEEDS: Section 2 (setup). Uses Sections 3 and 4 when they are on.
 # What it does: when a phone connects, listens for letters and acts on them
-# (see the command list above). When it disconnects, shows an X.
+# (see the command list above). When it disconnects, shows an X and stops
+# listening. If Section 8 is on, it takes over Bluetooth instead and this
+# section is not plugged in.
 # =============================================================================
 
 # ON/OFF SWITCH for this section. Set to False to skip it.
@@ -345,6 +351,9 @@ def on_bluetooth_connected():
 
 
 def on_bluetooth_disconnected():
+    global connect
+    # Tell the listening loop above to stop.
+    connect = 0
     basic.show_icon(IconNames.NO)
 
 
@@ -452,17 +461,83 @@ def on_forever():
 
 
 # =============================================================================
+# SECTION 8 - BLUETOOTH APP CONTROL LED (SIMPLE VERSION)
+# Source file : microbit-9Bluetooth_APP_Control_LED.hex
+# NEEDS: nothing if Section 2 is off (it sets up its own serial link and
+#        small light strip). If Section 2 is on, it reuses Section 2's setup.
+#
+# What it does: a smaller, stand-alone Bluetooth controller. Same idea as
+# Section 5 but it only controls the small 4-light strip:
+#   j = warm white on     k = off
+#
+# IMPORTANT: Sections 5 and 8 both listen for Bluetooth, and only one can be
+# in charge. If both switches are True, Section 8 wins and Section 5 is not
+# plugged in. It starts OFF because Section 5 already does everything this
+# section does (j turns the small strip on; k turns BOTH strips off).
+# =============================================================================
+
+# ON/OFF SWITCH for this section. Set to True to use it instead of Section 5.
+ENABLE_BLUETOOTH_LED_ONLY = False
+
+# --- Variables for this section ---
+# 1 while a phone is connected, and the last message received.
+led_connect = 0
+led_ble_val = ""
+
+
+def section_led_setup():
+    # Runs once at start-up. Skipped if Section 2 already did this work.
+    global strip2
+    if not ENABLE_BLUETOOTH_LED_ONLY:
+        return
+    if ENABLE_SETUP:
+        return
+    # Send serial messages over the USB cable (the simple, default way).
+    serial.redirect_to_usb()
+    # The small light strip (uses the pin and size set in Section 2).
+    strip2 = neopixel.create(STRIP2_PIN, STRIP2_LIGHTS, NeoPixelMode.RGB)
+
+
+def on_led_bluetooth_connected():
+    global led_connect, led_ble_val
+    basic.show_icon(IconNames.YES)
+    led_connect = 1
+    # Keep listening. Each message ends with a # character.
+    while led_connect == 1:
+        led_ble_val = bluetooth.uart_read_until(serial.delimiters(Delimiters.HASH))
+        # Echo the message to the USB serial link.
+        serial.write_string(led_ble_val)
+        serial.write_line("")
+        if led_ble_val == "j":
+            strip2.show_color(neopixel.rgb(255, 198, 187))
+        elif led_ble_val == "k":
+            strip2.show_color(neopixel.colors(NeoPixelColors.BLACK))
+
+
+def on_led_bluetooth_disconnected():
+    global led_connect
+    # Tell the listening loop above to stop.
+    led_connect = 0
+    basic.show_icon(IconNames.NO)
+
+
+# =============================================================================
 # MAIN PROGRAM
 # Runs each section in order. Each section checks its own switch above.
-# Event sections (5, 6, 7) are only "plugged in" when their switch is True.
+# Event sections (5, 6, 7, 8) are only "plugged in" when their switch is True.
 # =============================================================================
 
 # Run once at start-up.
 section_servo_init()
 section_setup()
+section_led_setup()
 
-# Section 5: Bluetooth events.
-if ENABLE_BLUETOOTH:
+# Bluetooth events. Only one section can be in charge of Bluetooth:
+# Section 8 if its switch is on, otherwise Section 5.
+if ENABLE_BLUETOOTH_LED_ONLY:
+    bluetooth.on_bluetooth_connected(on_led_bluetooth_connected)
+    bluetooth.on_bluetooth_disconnected(on_led_bluetooth_disconnected)
+elif ENABLE_BLUETOOTH:
     bluetooth.on_bluetooth_connected(on_bluetooth_connected)
     bluetooth.on_bluetooth_disconnected(on_bluetooth_disconnected)
 
